@@ -4,7 +4,7 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class EdahabiaGateway {
-  private readonly logger = new Logger(EdahabiaGateway);
+  private readonly logger = new Logger('EdahabiaGateway');
   private apiKey: string;
   private merchantId: string;
   private testMode: boolean;
