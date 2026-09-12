@@ -86,11 +86,12 @@ export class PaymentService {
         where: { id: transaction.id },
         data: {
           paymentStatus: PaymentStatus.FAILED,
-          errorMessage: error.message,
+          (error as any).message: .(error as any).message,
         },
       });
 
-      throw new BadRequestException(`Payment failed: ${error.message}`);
+      throw new BadRequestException(`Payment failed: $(error as any).
+      .message}`);
     }
   }
 
@@ -229,7 +230,7 @@ export class PaymentService {
     return {
       status: 'success',
       message: 'Payment processed from wallet',
-      redirectUrl: null,
+      redirectUrl: null as string | null,
     };
   }
 }
