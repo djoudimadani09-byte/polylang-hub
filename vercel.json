@@ -1,12 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": {
-    "src/main.ts": {
-      "handler": "dist/main.js",
-      "runtime": "nodejs20.x"
-    }
-  },
   "env": {
     "NODE_ENV": "production",
     "PORT": "3000"
