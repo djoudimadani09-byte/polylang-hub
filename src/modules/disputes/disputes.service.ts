@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
-import { PrismaService } from '@/prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 
@@ -17,25 +17,15 @@ export class DisputesService {
       throw new NotFoundException('Order not found');
     }
 
-    const dispute = await this.prisma.dispute.create({
+    return this.prisma.dispute.create({
       data: {
         orderId: createDisputeDto.orderId,
         reportedBy: createDisputeDto.reportedBy,
         reason: createDisputeDto.reason,
         description: createDisputeDto.description,
-        status: 'OPEN',
+        status: 'PENDING',
       },
     });
-
-    // Update order status to disputed
-    await this.prisma.order.update({
-      where: { id: createDisputeDto.orderId },
-      data: {
-        status: 'DISPUTED',
-      },
-    });
-
-    return dispute;
   }
 
   async getDispute(disputeId: string) {
@@ -43,13 +33,7 @@ export class DisputesService {
       where: { id: disputeId },
       include: {
         order: true,
-        reporter: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-          },
-        },
+        reporter: true,
       },
     });
 
@@ -62,20 +46,22 @@ export class DisputesService {
 
   async getAllDisputes(status?: string) {
     return this.prisma.dispute.findMany({
-      where: status ? { status: status as any } : {},
+      where: status ? { status: status as any } : undefined,
       include: {
         order: true,
-        reporter: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
-          },
-        },
+        reporter: true,
       },
-      orderBy: {
-        createdAt: 'desc',
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getUserDisputes(user: any) {
+    return this.prisma.dispute.findMany({
+      where: { reportedBy: user.id },
+      include: {
+        order: true,
       },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -97,28 +83,15 @@ export class DisputesService {
       },
     });
 
-    // Update order status based on resolution
-    await this.prisma.order.update({
-      where: { id: dispute.orderId },
-      data: {
-        status: (resolveDisputeDto.orderStatus as OrderStatus) || OrderStatus.COMPLETED,
-      },
-    });
+    if (resolveDisputeDto.orderStatus) {
+      await this.prisma.order.update({
+        where: { id: dispute.orderId },
+        data: {
+          status: (resolveDisputeDto.orderStatus as OrderStatus) || OrderStatus.COMPLETED,
+        },
+      });
+    }
 
     return updatedDispute;
-  }
-
-  async getUserDisputes(userId: string) {
-    return this.prisma.dispute.findMany({
-      where: {
-        reportedBy: userId,
-      },
-      include: {
-        order: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
   }
 }
