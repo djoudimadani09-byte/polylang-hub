@@ -1,0 +1,14 @@
+node_modules/
+.DS_Store
+.env
+.env.local
+.env.docker
+*.log
+dist/
+coverage/
+.vscode/
+.idea/
+*.swp
+*.swo
+.env.production.local
+upload/
