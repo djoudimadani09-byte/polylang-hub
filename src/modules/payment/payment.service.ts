@@ -8,7 +8,7 @@ import { PaymentMethod, PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class PaymentService {
-  private readonly logger = new Logger(PaymentService);
+  private readonly logger = new Logger('PaymentService');
 
   constructor(
     private prisma: PrismaService,
