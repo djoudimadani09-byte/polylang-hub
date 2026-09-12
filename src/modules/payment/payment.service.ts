@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '@common/prisma/prisma.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { EdahabiaGateway } from './gateways/edahabia.gateway';
 import { GoldenCardGateway } from './gateways/golden-card.gateway';
@@ -20,7 +20,6 @@ export class PaymentService {
   async processPayment(userId: string, createPaymentDto: CreatePaymentDto) {
     const { orderId, amount, paymentMethod } = createPaymentDto;
 
-    // Verify order exists
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
     });
@@ -33,7 +32,6 @@ export class PaymentService {
       throw new BadRequestException('Unauthorized to pay this order');
     }
 
-    // Create transaction record
     const transaction = await this.prisma.transaction.create({
       data: {
         orderId,
@@ -103,7 +101,6 @@ export class PaymentService {
       throw new BadRequestException('Transaction not found');
     }
 
-    // Update transaction with gateway reference
     const updatedTransaction = await this.prisma.transaction.update({
       where: { id: transactionId },
       data: {
@@ -112,7 +109,6 @@ export class PaymentService {
       },
     });
 
-    // Update order status to allow translation assignment
     await this.prisma.order.update({
       where: { id: transaction.orderId },
       data: {
@@ -148,21 +144,15 @@ export class PaymentService {
   async getUserTransactions(userId: string) {
     return this.prisma.transaction.findMany({
       where: { userId },
-      include: {
-        order: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      include: { order: true },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
   async getOrderTransactions(orderId: string) {
     return this.prisma.transaction.findMany({
       where: { orderId },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -179,22 +169,16 @@ export class PaymentService {
       throw new BadRequestException('Can only refund completed payments');
     }
 
-    // Process refund based on payment method
-    let refundResult;
     if (transaction.paymentMethod === PaymentMethod.EDAHABIA) {
-      refundResult = await this.edahabiaGateway.refund(transaction.gatewayReference, transaction.amount);
+      await this.edahabiaGateway.refund(transaction.gatewayReference || '', transaction.amount);
     } else if (transaction.paymentMethod === PaymentMethod.GOLDEN_CARD) {
-      refundResult = await this.goldenCardGateway.refund(transaction.gatewayReference, transaction.amount);
+      await this.goldenCardGateway.refund(transaction.gatewayReference || '', transaction.amount);
     }
 
-    const updatedTransaction = await this.prisma.transaction.update({
+    return this.prisma.transaction.update({
       where: { id: transactionId },
-      data: {
-        paymentStatus: PaymentStatus.REFUNDED,
-      },
+      data: { paymentStatus: PaymentStatus.REFUNDED },
     });
-
-    return updatedTransaction;
   }
 
   private async processWalletPayment(userId: string, amount: number, transactionId: string) {
@@ -210,20 +194,14 @@ export class PaymentService {
       throw new BadRequestException('Insufficient wallet balance');
     }
 
-    // Deduct from wallet
     await this.prisma.walletBalance.update({
       where: { userId },
-      data: {
-        balance: wallet.balance - amount,
-      },
+      data: { balance: wallet.balance - amount },
     });
 
-    // Mark transaction as completed
     await this.prisma.transaction.update({
       where: { id: transactionId },
-      data: {
-        paymentStatus: PaymentStatus.COMPLETED,
-      },
+      data: { paymentStatus: PaymentStatus.COMPLETED },
     });
 
     return {
