@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 RUN npm run build
@@ -16,7 +16,7 @@ WORKDIR /app
 RUN apk add --no-cache dumb-init
 
 COPY package*.json ./
-RUN npm install --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
