@@ -100,7 +100,7 @@ export class DisputesService {
     await this.prisma.order.update({
       where: { id: dispute.orderId },
       data: {
-        status: resolveDisputeDto.orderStatus || 'COMPLETED',
+        status: (resolveDisputeDto.orderStatus as OrderStatus) || OrderStatus.COMPLETED,
       },
     });
 
