@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: polylang_db
+    environment:
+      POSTGRES_USER: polylang_user
+      POSTGRES_PASSWORD: polylang_password
+      POSTGRES_DB: polylang_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U polylang_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - polylang_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: polylang_app
+    environment:
+      DATABASE_URL: postgresql://polylang_user:polylang_password@db:5432/polylang_db
+      JWT_SECRET: polylang_jwt_secret
+      JWT_EXPIRATION: 24h
+      PORT: 3000
+      NODE_ENV: production
+      UPLOAD_DEST: /app/uploads
+      EDAHABIA_API_KEY: ${EDAHABIA_API_KEY}
+      EDAHABIA_MERCHANT_ID: ${EDAHABIA_MERCHANT_ID}
+      GOLDEN_CARD_API_KEY: ${GOLDEN_CARD_API_KEY}
+      PAYMENT_MODE: test
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+      - ./src:/app/src
+    networks:
+      - polylang_network
+    command: npm run start:prod
+
+volumes:
+  postgres_data:
+
+networks:
+  polylang_network:
+    driver: bridge

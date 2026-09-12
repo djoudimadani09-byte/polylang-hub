@@ -1,0 +1,236 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  passwordHash String
+  role      UserRole @default(CLIENT)
+  preferredLanguage String @default("ar")
+  phone     String?
+  address   String?
+  city      String?
+  zipCode   String?
+  country   String? @default("DZ")
+  avatar    String?
+  bio       String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  orders        Order[]
+  translations  Translation[]
+  transactions  Transaction[]
+  walletBalance WalletBalance?
+  disputes      Dispute[]
+  ratings       Rating[]
+  languages     TranslatorLanguage[]
+
+  @@index([email])
+  @@index([role])
+  @@index([createdAt])
+}
+
+enum UserRole {
+  CLIENT
+  TRANSLATOR
+  ADMIN
+}
+
+model WalletBalance {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance   Float    @default(0)
+  currency  String   @default("DZD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Order {
+  id                String   @id @default(cuid())
+  clientId          String
+  client            User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sourceLanguage    String
+  targetLanguage    String
+  fileUrl           String
+  fileName          String
+  fileSize          Int
+  documentType      String
+  wordCount         Int
+  description       String?
+  status            OrderStatus @default(PENDING)
+  totalPrice        Float
+  currency          String @default("DZD")
+  deadline          DateTime?
+  assignedTo        String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  translations      Translation[]
+  transactions      Transaction[]
+  disputes          Dispute[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([sourceLanguage, targetLanguage])
+  @@index([createdAt])
+}
+
+enum OrderStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+model Translation {
+  id              String   @id @default(cuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  translatorId    String
+  translator      User     @relation(fields: [translatorId], references: [id], onDelete: Cascade)
+  draftText       String   @db.Text
+  finalText       String?  @db.Text
+  status          TranslationStatus @default(DRAFT)
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  ratings         Rating[]
+
+  @@index([orderId])
+  @@index([translatorId])
+  @@index([status])
+}
+
+enum TranslationStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+model Transaction {
+  id                String   @id @default(cuid())
+  orderId           String
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount            Float
+  currency          String @default("DZD")
+  paymentStatus     PaymentStatus @default(PENDING)
+  paymentMethod     PaymentMethod
+  gatewayReference  String?
+  transactionHash   String?
+  errorMessage      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  EDAHABIA
+  GOLDEN_CARD
+  WALLET
+  BANK_TRANSFER
+}
+
+model Dispute {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reportedBy  String
+  reporter    User     @relation(fields: [reportedBy], references: [id], onDelete: Cascade)
+  reason      String
+  description String   @db.Text
+  status      DisputeStatus @default(OPEN)
+  resolution  String?  @db.Text
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([reportedBy])
+  @@index([status])
+}
+
+enum DisputeStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+model Rating {
+  id            String   @id @default(cuid())
+  translationId String
+  translation   Translation @relation(fields: [translationId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        User     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  score         Int
+  comment       String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([translationId, clientId])
+  @@index([translationId])
+  @@index([clientId])
+}
+
+model TranslatorLanguage {
+  id           String   @id @default(cuid())
+  translatorId String
+  translator   User     @relation(fields: [translatorId], references: [id], onDelete: Cascade)
+  language     String
+  proficiency  LanguageProficiency @default(INTERMEDIATE)
+  yearsOfExperience Int @default(0)
+  certification String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([translatorId, language])
+  @@index([translatorId])
+  @@index([language])
+}
+
+enum LanguageProficiency {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  NATIVE
+  FLUENT
+}
