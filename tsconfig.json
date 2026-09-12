@@ -24,3 +24,5 @@
     }
   }
 }
+"experimentalDecorators": true,
+"emitDecoratorMetadata": true
