@@ -4,7 +4,9 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class GoldenCardGateway {
-  private readonly logger = new Logger(GoldenCardGateway);
+  private readonly logger = new Logger('GoldenCardGateway');
+
+في
   private apiKey: string;
   private testMode: boolean;
   private apiEndpoint = 'https://api.goldencard.dz';
