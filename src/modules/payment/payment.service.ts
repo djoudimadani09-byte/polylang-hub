@@ -80,18 +80,17 @@ export class PaymentService {
         message: paymentResult.message,
       };
     } catch (error) {
-      this.logger.error(`Payment processing error: ${error.message}`);
+      const err = error as Error;
+      this.logger.error(`Payment processing error: ${err.message}`);
 
       await this.prisma.transaction.update({
         where: { id: transaction.id },
         data: {
           paymentStatus: PaymentStatus.FAILED,
-          (error as any).message: .(error as any).message,
         },
       });
 
-      throw new BadRequestException(`Payment failed: $(error as any).
-      .message}`);
+      throw new BadRequestException(`Payment failed: ${err.message}`);
     }
   }
 
