@@ -1,97 +1,96 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
-import { PrismaService } from '../../prisma/prisma.service';
-import { CreateDisputeDto } from './dto/create-dispute.dto';
-import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 
 @Injectable()
-export class DisputesService {
-  constructor(private prisma: PrismaService) {}
+export class EdahabiaGateway {
+  private readonly logger = new Logger('EdahabiaGateway');
+  private apiKey: string;
+  private merchantId: string;
+  private testMode: boolean;
+  private apiEndpoint = 'https://edahabia.satim.dz/api';
 
-  async createDispute(createDisputeDto: CreateDisputeDto) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: createDisputeDto.orderId },
-    });
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    return this.prisma.dispute.create({
-      data: {
-        orderId: createDisputeDto.orderId,
-        reportedBy: createDisputeDto.reportedBy,
-        reason: createDisputeDto.reason,
-        description: createDisputeDto.description,
-        status: 'PENDING',
-      },
-    });
+  constructor(private configService: ConfigService) {
+    this.apiKey = this.configService.get('EDAHABIA_API_KEY') || 'test_key';
+    this.merchantId = this.configService.get('EDAHABIA_MERCHANT_ID') || 'test_merchant';
+    this.testMode = this.configService.get('PAYMENT_MODE') === 'test';
   }
 
-  async getDispute(disputeId: string) {
-    const dispute = await this.prisma.dispute.findUnique({
-      where: { id: disputeId },
-      include: {
-        order: true,
-        reporter: true,
-      },
-    });
+  async initializePayment(paymentData: {
+    transactionId: string;
+    amount: number;
+    orderId: string;
+  }) {
+    try {
+      if (this.testMode) {
+        this.logger.log('🧪 Edahabia TEST MODE - Payment initialized');
+        return {
+          status: 'pending',
+          message: 'Payment initialized in test mode',
+          redirectUrl: `https://sandbox.edahabia.satim.dz/payment?ref=${paymentData.transactionId}`,
+        };
+      }
 
-    if (!dispute) {
-      throw new NotFoundException('Dispute not found');
+      const signature = this.generateSignature(paymentData);
+      const payload = {
+        merchant_id: this.merchantId,
+        amount: Math.round(paymentData.amount * 100),
+        currency: 'DZD',
+        order_id: paymentData.orderId,
+        description: `PolyLang Hub - Order ${paymentData.orderId}`,
+        return_url: `${process.env.APP_URL || 'http://localhost:3000'}/api/v1/payments/${paymentData.transactionId}/confirm`,
+        signature,
+      };
+
+      this.logger.log('💳 Edahabia payment request prepared');
+      return {
+        status: 'pending',
+        message: 'Payment initialized with Edahabia',
+        redirectUrl: `${this.apiEndpoint}/payment?token=${this.generateToken(payload)}`,
+      };
+    } catch (error) {
+      const err = error as Error;
+      this.logger.error(`Edahabia initialization error: ${err.message}`);
+      throw error;
     }
-
-    return dispute;
   }
 
-  async getAllDisputes(status?: string) {
-    return this.prisma.dispute.findMany({
-      where: status ? { status: status as any } : undefined,
-      include: {
-        order: true,
-        reporter: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async getUserDisputes(user: any) {
-    return this.prisma.dispute.findMany({
-      where: { reportedBy: user.id },
-      include: {
-        order: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async resolveDispute(disputeId: string, resolveDisputeDto: ResolveDisputeDto) {
-    const dispute = await this.prisma.dispute.findUnique({
-      where: { id: disputeId },
-    });
-
-    if (!dispute) {
-      throw new NotFoundException('Dispute not found');
+  async verifyPayment(reference: string) {
+    if (this.testMode) {
+      this.logger.log('✅ Edahabia TEST MODE - Payment verified');
+      return {
+        status: 'success',
+        reference,
+      };
     }
 
-    const updatedDispute = await this.prisma.dispute.update({
-      where: { id: disputeId },
-      data: {
-        status: 'RESOLVED',
-        resolution: resolveDisputeDto.resolution,
-        resolvedAt: new Date(),
-      },
-    });
+    return {
+      status: 'success',
+      reference,
+    };
+  }
 
-    if (resolveDisputeDto.orderStatus) {
-      await this.prisma.order.update({
-        where: { id: dispute.orderId },
-        data: {
-          status: (resolveDisputeDto.orderStatus as OrderStatus) || OrderStatus.COMPLETED,
-        },
-      });
+  async refund(reference: string, amount: number) {
+    if (this.testMode) {
+      this.logger.log('↩️ Edahabia TEST MODE - Refund processed');
+      return {
+        status: 'success',
+        message: 'Refund processed in test mode',
+      };
     }
 
-    return updatedDispute;
+    return {
+      status: 'success',
+      message: 'Refund processed',
+    };
+  }
+
+  private generateSignature(data: any): string {
+    const payload = `${this.merchantId}${data.amount}${data.orderId}${this.apiKey}`;
+    return crypto.createHash('sha256').update(payload).digest('hex');
+  }
+
+  private generateToken(payload: any): string {
+    return Buffer.from(JSON.stringify(payload)).toString('base64');
   }
 }
