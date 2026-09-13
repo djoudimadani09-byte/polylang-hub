@@ -24,7 +24,7 @@ export class DisputesService {
         reportedBy: createDisputeDto.reportedBy,
         reason: createDisputeDto.reason,
         description: createDisputeDto.description,
-        status: DisputeStatus.PENDING,
+        status: DisputeStatus.OPEN,
       },
     });
   }
