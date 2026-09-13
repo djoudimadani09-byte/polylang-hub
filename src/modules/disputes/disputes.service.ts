@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
+import { DisputeStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
@@ -23,7 +24,7 @@ export class DisputesService {
         reportedBy: createDisputeDto.reportedBy,
         reason: createDisputeDto.reason,
         description: createDisputeDto.description,
-        status: 'PENDING',
+        status: DisputeStatus.PENDING,
       },
     });
   }
