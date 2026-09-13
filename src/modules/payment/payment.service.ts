@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '../../../src/prisma/prisma.service'; // أو اعد ضبط عدد الـ ../ حسب مساره الحقيقي
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { EdahabiaGateway } from './gateways/edahabia.gateway';
 import { GoldenCardGateway } from './gateways/golden-card.gateway';
